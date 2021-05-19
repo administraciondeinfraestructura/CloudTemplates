@@ -1,5 +1,5 @@
-version: 1.2
 name: Windows DB Server
+version: 1.2
 formatVersion: 1
 inputs:
   image:
