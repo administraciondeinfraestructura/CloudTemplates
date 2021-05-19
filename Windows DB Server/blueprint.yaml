@@ -1,0 +1,276 @@
+version: 1.2
+name: Windows DB Server
+formatVersion: 1
+inputs:
+  image:
+    type: string
+    oneOf:
+      - title: Windows 2016
+        const: Win2016
+      - title: Windows 2019
+        const: Win2019
+    default: Win2019
+  nube:
+    type: string
+    title: Nube
+    oneOf:
+      - title: On Premise
+        const: 'nube:Z1'
+      - title: GCP
+        const: 'nube:Z2'
+      - title: AWS
+        const: 'nube:Z3'
+    default: 'nube:Z1'
+  flavor:
+    type: string
+    title: Tamaño
+    oneOf:
+      - title: Medium (2 vCPU-4 GB)
+        const: Medium
+      - title: Large (4 vCPU-8 GB)
+        const: Large
+      - title: Extra Large (6 vCPU-16 GB)
+        const: Extra Large
+    default: Medium
+  environment:
+    type: string
+    default: 'env:D'
+    title: Entorno
+    oneOf:
+      - title: Desarrollo
+        const: 'env:D'
+      - title: Pre-Produccion
+        const: 'env:PP'
+      #      - title: Produccion
+      #        const: 'env:P'
+      - title: Testing
+        const: 'env:T'
+  network:
+    type: string
+    default: 'RED:NODMZ'
+    title: Red
+    oneOf:
+      - title: NO DMZ
+        const: 'RED:NODMZ'
+      - title: DMZ
+        const: 'RED:DMZ'
+  internet:
+    type: string
+    title: Salida a internet
+    oneOf:
+      - title: Si
+        const: 'internet:SI'
+      - title: 'No'
+        const: 'internet:NO'
+    default: 'internet:NO'
+  backup:
+    type: string
+    title: Politica de Backup
+    oneOf:
+      - title: Diario
+        const: Diario
+      - title: Semanal
+        const: Semanal
+      - title: Quincenal
+        const: Quincenal
+      - title: Sin Backup
+        const: SinBackup
+    default: SinBackup
+  disco_install:
+    title: 'Disco (E:\)'
+    description: Disco donde se instalara el software
+    type: number
+    minimum: 50
+    maximum: 100
+  disco_datos:
+    type: number
+    title: 'Disco F:\'
+    description: Disco donde se ubicaran los datos
+    default: 0
+    minimum: 0
+    maximum: 500
+  disco_log:
+    type: number
+    title: 'Disco L:\'
+    description: 'Aqui se ubicaran los transaction logs de las bases de datos, si es 0 no se aprovisiona'
+    default: 0
+    minimum: 0
+    maximum: 250
+  disco_temp:
+    type: number
+    title: 'Disco T:\'
+    description: 'Aqui se ubicaran los archivos de la base TEMPDB, si es 0 no se aprovisiona'
+    default: 0
+    minimum: 0
+    maximum: 250
+  dominio:
+    title: Dominio
+    type: string
+    oneOf:
+      - title: osdebinario.grupoosde
+        const: osdebinario
+      - title: urg.grupoosde
+        const: urg
+      - title: binariaseguros.grupoosde
+        const: binariaseguros
+    default: osdebinario
+  sql_version:
+    title: Version de SQL Server a Instalar
+    type: string
+    oneOf:
+      - title: SQL Server 2016
+        const: win_sql2016
+      - title: SQL Server 2017
+        const: win_sql2017
+      - title: SQL Server 2019
+        const: win_sql2019
+    default: win_sql2016
+  sql_edicion:
+    title: Edicion de SQL Server
+    type: string
+    oneOf:
+      - title: Developer
+        const: DEVELOPER
+      - title: Standar
+        const: STANDAR
+      - title: Enterprise
+        const: ENTERPRISE
+    default: DEVELOPER
+  sql_collation:
+    title: Seleccione el collation
+    type: string
+    enum:
+      - SQL_Latin1_General_CP1_CI_AS
+      - Latin1_General_CP1_CI_AS
+    default: SQL_Latin1_General_CP1_CI_AS
+  sql_features:
+    title: Componentes a Instalar
+    type: string
+    oneOf:
+      - title: Sql Server
+        const: 'SQL,Tools'
+      - title: SQL Server + Integration Services
+        const: 'SQL,Tools,IS'
+      - title: SQL Server + Analysis Services
+        const: 'SQL,Tools,AS'
+      - title: SQL Server + Integration Services + Analysis Services
+        const: 'SQL,Tools,IS,AS'
+    default: 'SQL,Tools'
+  ssms_install:
+    title: Instalar SQL Server Management Studio
+    type: string
+    oneOf:
+      - title: 'No'
+        const: ninguno
+      - title: Versión 16.5.3
+        const: ssms_1653
+      - title: Versión 17.9.1
+        const: ssms_1791
+      - title: Versión 18.9.1
+        const: ssms_1891
+resources:
+  Cloud_Ansible_1:
+    type: Cloud.Ansible
+    properties:
+      host: '${resource.Cloud_Machine_1.*}'
+      osType: windows
+      account: Ansible-OSDE
+      username: addvmnb
+      password: osde*123
+      groups:
+        - windows
+        - '${input.sql_version}'
+      playbooks:
+        provision:
+          - '/etc/ansible/playbooks/${input.sql_version}.yml -e "target=''${resource.Cloud_Machine_1.address}''"'
+      hostVariables:
+        nombre_dominio: '${input.dominio}'
+        hostname: '${resource.Cloud_Machine_1.name}'
+        nube: '${input.nube}'
+        imagen: '${input.image}'
+        disco_e: '${input.disco_install}'
+        disco_f: '${input.disco_datos}'
+        disco_l: '${input.disco_log}'
+        disco_t: '${input.disco_temp}'
+        sql_version: '${input.sql_edicion}'
+        sql_features: '${input.sql_features}'
+        sql_collation: '${input.sql_collation}'
+        ssms_install: '${input.ssms_install}'
+  Cloud_Machine_1:
+    type: Cloud.Machine
+    properties:
+      name: '${substring(input.environment,4) + "WIN" + substring(input.nube,5) + "-" + to_upper(substring(uuid(),28,30)) + to_upper(substring(uuid(),31))}'
+      image: '${input.image}'
+      flavor: '${input.flavor}'
+      customizationSpec: null
+      snapshotLimit: 1
+      constraints:
+        - tag: '${input.environment}'
+      networks:
+        - network: '${resource.Cloud_Network.id}'
+          assignPublicIpAddress: false
+          tags:
+            - key: Entorno
+              value: '${substring(input.environment , 4)}'
+            - key: Proyecto
+              value: '${env.projectName}'
+            - key: Network
+              value: '${input.network}'
+      storage:
+        constraints:
+          - tag: '${input.environment}'
+          - tag: '${input.nube}'
+      resourceGroupName: '${"VRA8-"+ (env.projectName)}'
+      tags:
+        - key: backup
+          value: '${input.nube == "nube:Z1" ? input.backup : to_lower(input.backup)}'
+        - key: entorno
+          value: '${input.nube == "nube:Z1" ? substring(input.environment , 4) : to_lower(substring(input.environment , 4))}'
+        - key: proyecto
+          value: '${input.nube == "nube:Z1" ? env.projectName : to_lower(env.projectName)}'
+      attachedDisks: '${map_to_object(resource.Cloud_Volume_1[*].id + resource.Cloud_Volume_2[*].id + resource.Cloud_Volume_3[*].id + resource.Cloud_Volume_4[*].id, "source")}'
+  Cloud_Volume_1:
+    type: Cloud.Volume
+    resourceGroupName: '${"VRA8-"+ (env.projectName)}'
+    properties:
+      name: install
+      capacityGb: '${input.disco_install}'
+      constraints:
+        - tag: '${input.environment}'
+      count: '${input.disco_install == 0 ? 0 : 1 }'
+  Cloud_Volume_2:
+    type: Cloud.Volume
+    resourceGroupName: '${"VRA8-"+ (env.projectName)}'
+    properties:
+      name: data
+      count: '${input.disco_datos == 0 ? 0 : 1 }'
+      capacityGb: '${input.disco_datos}'
+      constraints:
+        - tag: '${input.environment}'
+  Cloud_Volume_3:
+    type: Cloud.Volume
+    resourceGroupName: '${"VRA8-"+ (env.projectName)}'
+    properties:
+      count: '${input.disco_log == 0 ? 0 : 1 }'
+      name: log
+      capacityGb: '${input.disco_log}'
+      constraints:
+        - tag: '${input.environment}'
+  Cloud_Volume_4:
+    type: Cloud.Volume
+    resourceGroupName: '${"VRA8-"+ (env.projectName)}'
+    properties:
+      count: '${input.disco_temp == 0 ? 0 : 1 }'
+      name: temp
+      capacityGb: '${input.disco_temp}'
+      constraints:
+        - tag: '${input.environment}'
+  Cloud_Network:
+    type: Cloud.Network
+    properties:
+      networkType: existing
+      constraints:
+        - tag: '${input.network}'
+        - tag: '${input.environment}'
+        - tag: '${input.nube}'
+        - tag: '${input.internet}'
